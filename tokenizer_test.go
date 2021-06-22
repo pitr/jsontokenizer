@@ -103,7 +103,7 @@ func TestToken_Bad(t *testing.T) {
 		err string
 	}{
 		{"nil", "expected null got i at index 1"},
-		{"hi", "invalid character 'h'"},
+		{"hi", `invalid json "hi"`},
 		{" fall", "expected false got l at index 3"},
 		{" f", "expected false got EOF"},
 	}
@@ -161,7 +161,7 @@ func BenchmarkTokenizer(b *testing.B) {
 			b.ReportAllocs()
 
 			for i := 0; i < b.N; i++ {
-				data.Seek(0, io.SeekStart)
+				_, _ = data.Seek(0, io.SeekStart)
 				dec.Reset(data)
 
 				for {
@@ -208,7 +208,7 @@ func BenchmarkBuiltinDecoder(b *testing.B) {
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		data.Seek(0, io.SeekStart)
+		_, _ = data.Seek(0, io.SeekStart)
 		dec := json.NewDecoder(data)
 		dec.UseNumber()
 

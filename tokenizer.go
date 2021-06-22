@@ -5,8 +5,10 @@ import (
 	"io"
 )
 
+// A TokType is an enum for JSON types.
 type TokType int
 
+// The following TokTypes are defined.
 const (
 	TokNull TokType = iota
 	TokTrue
@@ -26,9 +28,23 @@ var (
 	btrue  = []byte("true")
 	bfalse = []byte("false")
 
-	lookup = [256]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 's', 's', 0, 0, 's', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 's', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '#', 's', '#', '#', 0, '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', 's', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '#', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '#'}
+	lookup = [256]byte{
+		'\t': 's', '\n': 's', '\r': 's', ' ': 's', ',': 's', ':': 's',
+		'+': '#', '-': '#', '.': '#', '0': '#', '1': '#',
+		'2': '#', '3': '#', '4': '#', '5': '#', '6': '#',
+		'7': '#', '8': '#', '9': '#', 'E': '#', 'e': '#',
+	}
+	toklookup = [256]TokType{
+		'{': TokObjectOpen, '}': TokObjectClose,
+		'[': TokArrayOpen, ']': TokArrayClose,
+		'"': TokString, '-': TokNumber, '0': TokNumber,
+		'1': TokNumber, '2': TokNumber, '3': TokNumber,
+		'4': TokNumber, '5': TokNumber, '6': TokNumber,
+		'7': TokNumber, '8': TokNumber, '9': TokNumber,
+	}
 )
 
+// Tokenizer reads and tokenizes JSON from an input stream.
 type Tokenizer struct {
 	in   io.Reader
 	buf  []byte
@@ -36,50 +52,45 @@ type Tokenizer struct {
 	bufe int
 }
 
+// New returns a new Tokenizer with default buffer size.
 func New(in io.Reader) *Tokenizer {
 	return NewWithSize(in, defaultSize)
 }
 
+// NewWithSize returns a new Tokenizer with custom buffer size.
 func NewWithSize(in io.Reader, size int) *Tokenizer {
 	return &Tokenizer{in: in, buf: make([]byte, size)}
 }
 
+// Token returns next token. TokString and TokNumber tokens must be
+// consumed by ReadString and ReadNumber respectively.
 func (t *Tokenizer) Token() (TokType, error) {
-	for {
-		c, err := t.peek()
-		if err != nil {
-			return TokNull, err
-		}
+	c, err := t.peek()
+	if err != nil {
+		return TokNull, err
+	}
 
+	switch toklookup[c] {
+	case 0:
 		switch c {
-		case '{':
-			t.bufp++
-			return TokObjectOpen, nil
-		case '}':
-			t.bufp++
-			return TokObjectClose, nil
-		case '[':
-			t.bufp++
-			return TokArrayOpen, nil
-		case ']':
-			t.bufp++
-			return TokArrayClose, nil
-		case '"':
-			return TokString, nil
 		case 't':
 			return TokTrue, t.readWord(btrue)
 		case 'f':
 			return TokFalse, t.readWord(bfalse)
 		case 'n':
 			return TokNull, t.readWord(bnull)
-		case '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			return TokNumber, nil
 		default:
-			return TokNull, fmt.Errorf("invalid character %q", c)
+			return TokNull, fmt.Errorf("invalid json %q", t.buf[t.bufp:t.bufe])
 		}
+	case TokObjectOpen, TokObjectClose, TokArrayOpen, TokArrayClose:
+		t.bufp++
+		fallthrough
+	default:
+		return toklookup[c], nil
 	}
 }
 
+// ReadNumber consumes number token by writing it into provided io.Writer.
 func (t *Tokenizer) ReadNumber(into io.Writer) (n int, err error) {
 	for {
 		for i := t.bufp; i < t.bufe; i++ {
@@ -109,10 +120,9 @@ func (t *Tokenizer) ReadNumber(into io.Writer) (n int, err error) {
 	}
 }
 
+// ReadString consumes string token by writing it into provided io.Writer.
 func (t *Tokenizer) ReadString(into io.Writer) (n int, err error) {
-	var (
-		prev byte
-	)
+	var prev byte
 
 	t.bufp++
 
@@ -141,6 +151,7 @@ func (t *Tokenizer) ReadString(into io.Writer) (n int, err error) {
 	}
 }
 
+// Reset resets state of Tokenizer so it can be re-used with another Reader.
 func (t *Tokenizer) Reset(in io.Reader) {
 	t.bufp = 0
 	t.bufe = 0
