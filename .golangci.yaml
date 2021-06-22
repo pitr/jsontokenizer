@@ -1,6 +1,10 @@
 run:
   tests: false
 
+linters-settings:
+  exhaustive:
+    default-signifies-exhaustive: true
+
 linters:
   enable:
     - goimports
@@ -22,6 +26,7 @@ linters:
     - dupl
     - durationcheck
     - exportloopref
+    - exhaustive
     - forbidigo
     - forcetypeassert
     - funlen
