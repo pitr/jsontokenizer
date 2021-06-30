@@ -1,4 +1,6 @@
-# json tokenizer
+[![Go Reference](https://pkg.go.dev/badge/github.com/pitr/jsontokenizer.svg)](https://pkg.go.dev/github.com/pitr/jsontokenizer)
+
+# JSON Tokenizer
 
 Zero-allocation JSON tokenizer.
 
@@ -13,10 +15,10 @@ Zero-allocation JSON tokenizer.
 ## Anti-Features
 
 - Does **NOT** parse JSON. Will not verify semantic correctness. `[}` will produce 2 tokens without errors.
-- Needs an `io.Writer` to write numbers and strings into. Based on your use case, can be `os.Stdout`, `bytes.Buffer`, [ByteBuffer](https://github.com/valyala/bytebufferpool), etc.
+- Needs an `io.Writer` to write numbers and strings into. Based on the use case, can be `os.Stdout`, `bytes.Buffer`, [ByteBuffer](https://github.com/valyala/bytebufferpool), etc.
 - Does not escape strings. `"he is 5'11\\"."` will be exactly that.
 - Does not parse numbers into floats/ints. Use `strconv.Atoi()` if needed.
-- Not thread safe.
+- Not thread safe. Use with `sync.Mutex` or the like to prevent simultaneous calls.
 
 ## Quick Start
 
