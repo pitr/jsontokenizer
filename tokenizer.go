@@ -27,9 +27,14 @@ const (
 
 // Tokenizer reads and tokenizes JSON from an input stream.
 type Tokenizer interface {
+	// Token returns next token. TokString and TokNumber tokens must be
+	// consumed by ReadString and ReadNumber respectively.
 	Token() (TokType, error)
+	// ReadNumber consumes number token by writing it into provided io.Writer.
 	ReadNumber(into io.Writer) (n int, err error)
+	// ReadString consumes string token by writing it into provided io.Writer.
 	ReadString(into io.Writer) (n int, err error)
+	// Reset resets state of Tokenizer so it can be re-used with another Reader.
 	Reset(in io.Reader)
 }
 
@@ -74,8 +79,6 @@ func NewWithSize(in io.Reader, size int) Tokenizer {
 	return &tokenizer{in: in, buf: make([]byte, size)}
 }
 
-// Token returns next token. TokString and TokNumber tokens must be
-// consumed by ReadString and ReadNumber respectively.
 func (t *tokenizer) Token() (TokType, error) {
 	c, err := t.peek()
 	if err != nil {
@@ -102,7 +105,6 @@ func (t *tokenizer) Token() (TokType, error) {
 	}
 }
 
-// ReadNumber consumes number token by writing it into provided io.Writer.
 func (t *tokenizer) ReadNumber(into io.Writer) (n int, err error) {
 	for {
 		for i := t.bufp; i < t.bufe; i++ {
@@ -132,7 +134,6 @@ func (t *tokenizer) ReadNumber(into io.Writer) (n int, err error) {
 	}
 }
 
-// ReadString consumes string token by writing it into provided io.Writer.
 func (t *tokenizer) ReadString(into io.Writer) (n int, err error) {
 	var prev byte
 
@@ -163,7 +164,6 @@ func (t *tokenizer) ReadString(into io.Writer) (n int, err error) {
 	}
 }
 
-// Reset resets state of Tokenizer so it can be re-used with another Reader.
 func (t *tokenizer) Reset(in io.Reader) {
 	t.bufp = 0
 	t.bufe = 0
