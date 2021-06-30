@@ -33,9 +33,11 @@ func TestToken(t *testing.T) {
 		{"-122", []TokType{TokNumber}, []interface{}{[]byte("-122")}},
 		{"[-122]", []TokType{TokArrayOpen, TokNumber, TokArrayClose}, []interface{}{[]byte("-122")}},
 		{" -122  1111111111E+4", []TokType{TokNumber, TokNumber}, []interface{}{[]byte("-122"), []byte("1111111111E+4")}},
+		{`[1,"2"]`, []TokType{TokArrayOpen, TokNumber, TokComma, TokString, TokArrayClose}, []interface{}{[]byte("1"), []byte("2")}},
 
 		{` "hi"`, []TokType{TokString}, []interface{}{[]byte(`hi`)}},
-		{`"a loooooooooong" : "string"`, []TokType{TokString, TokString}, []interface{}{[]byte(`a loooooooooong`), []byte(`string`)}},
+		{`"a loooooooooong" : "string"`, []TokType{TokString, TokObjectColon, TokString}, []interface{}{[]byte(`a loooooooooong`), []byte(`string`)}},
+		{`{"k1": "val","k2":42}`, []TokType{TokObjectOpen, TokString, TokObjectColon, TokString, TokComma, TokString, TokObjectColon, TokNumber, TokObjectClose}, []interface{}{[]byte(`k1`), []byte(`val`), []byte(`k2`), []byte(`42`)}},
 		{`"1\""`, []TokType{TokString}, []interface{}{[]byte(`1\"`)}},
 		{`"1\"4"`, []TokType{TokString}, []interface{}{[]byte(`1\"4`)}},
 
@@ -49,15 +51,15 @@ func TestToken(t *testing.T) {
 		{"[ [", []TokType{TokArrayOpen, TokArrayOpen}, nil},
 		{"[ ]", []TokType{TokArrayOpen, TokArrayClose}, nil},
 
-		{": :", nil, nil},
-		{":::::::::::::", nil, nil},
+		{": :", []TokType{TokObjectColon, TokObjectColon}, nil},
+		{":::", []TokType{TokObjectColon, TokObjectColon, TokObjectColon}, nil},
 
-		{", ,", nil, nil},
-		{",,,,,,,,,,,,,", nil, nil},
+		{", ,", []TokType{TokComma, TokComma}, nil},
+		{",,,", []TokType{TokComma, TokComma, TokComma}, nil},
 
 		{
 			`{"key":"val"}`,
-			[]TokType{TokObjectOpen, TokString, TokString, TokObjectClose},
+			[]TokType{TokObjectOpen, TokString, TokObjectColon, TokString, TokObjectClose},
 			[]interface{}{[]byte(`key`), []byte(`val`)},
 		},
 	}
