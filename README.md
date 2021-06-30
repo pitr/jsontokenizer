@@ -23,7 +23,11 @@ Zero-allocation JSON tokenizer.
 ## Quick Start
 
 ```go
-import json "github.com/pitr/jsontokenizer"
+import (
+	"io"
+
+	json "github.com/pitr/jsontokenizer"
+)
 
 func example(in io.Reader) error {
 	tk := json.New(in)
@@ -41,7 +45,7 @@ func example(in io.Reader) error {
 			println("got null")
 		case json.TokTrue, json.TokFalse:
 			println("got bool")
-		case json.TokArrayOpen, json.TokArrayClose, json.TokObjectOpen, json.TokObjectClose:
+		case json.TokArrayOpen, json.TokArrayClose, json.TokObjectOpen, json.TokObjectClose, json.TokObjectColon, json.TokComma:
 			println("got delimiter")
 		case json.TokNumber:
 			println("got number")
