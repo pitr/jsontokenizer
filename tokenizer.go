@@ -147,7 +147,11 @@ func (t *tokenizer) ReadString(into io.Writer) (n int, err error) {
 				t.bufp += i + 1
 				return n, err
 			}
-			prev = c
+			if c == '\\' && prev == '\\' {
+				prev = 0
+			} else {
+				prev = c
+			}
 		}
 		z, err := into.Write(t.buf[t.bufp:t.bufe])
 		n += z
