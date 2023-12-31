@@ -1,4 +1,4 @@
-[![Go Reference](https://pkg.go.dev/badge/github.com/pitr/jsontokenizer.svg)](https://pkg.go.dev/github.com/pitr/jsontokenizer)
+[![Go Reference](https://pkg.go.dev/badge/pitr.ca/jsontokenizer.svg)](https://pkg.go.dev/pitr.ca/jsontokenizer)
 
 # JSON Tokenizer
 
@@ -26,7 +26,7 @@ Zero-allocation JSON tokenizer.
 import (
 	"io"
 
-	json "github.com/pitr/jsontokenizer"
+	json "pitr.ca/jsontokenizer"
 )
 
 func example(in io.Reader) error {

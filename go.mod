@@ -1,4 +1,4 @@
-module github.com/pitr/jsontokenizer
+module pitr.ca/jsontokenizer
 
 go 1.16
 
