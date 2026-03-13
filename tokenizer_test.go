@@ -72,6 +72,29 @@ func TestToken(t *testing.T) {
 			[]TokType{TokObjectOpen, TokString, TokObjectColon, TokString, TokObjectClose},
 			[]string{`key`, `val`},
 		},
+
+		// number formats
+		{"0", []TokType{TokNumber}, []string{"0"}},
+		{"3.14", []TokType{TokNumber}, []string{"3.14"}},
+		{"-0.5", []TokType{TokNumber}, []string{"-0.5"}},
+		{"1.5e-3", []TokType{TokNumber}, []string{"1.5e-3"}},
+		{"1E+10", []TokType{TokNumber}, []string{"1E+10"}},
+
+		// empty string
+		{`""`, []TokType{TokString}, []string{""}},
+
+		// mixed literals in array
+		{`[null,true,false]`, []TokType{TokArrayOpen, TokNull, TokComma, TokTrue, TokComma, TokFalse, TokArrayClose}, nil},
+
+		// number fills exactly 6 chars after `[`, hitting buffer=7 boundary
+		{`[123456]`, []TokType{TokArrayOpen, TokNumber, TokArrayClose}, []string{"123456"}},
+
+		// nested arrays
+		{
+			`[[1],[2,3]]`,
+			[]TokType{TokArrayOpen, TokArrayOpen, TokNumber, TokArrayClose, TokComma, TokArrayOpen, TokNumber, TokComma, TokNumber, TokArrayClose, TokArrayClose},
+			[]string{"1", "2", "3"},
+		},
 	}
 	for _, tt := range tts {
 		t.Run(tt.in, func(t *testing.T) {
@@ -116,6 +139,8 @@ func TestToken_Bad(t *testing.T) {
 		{"hi", `invalid json "hi"`},
 		{" fall", "expected false got l at index 3"},
 		{" f", "expected false got EOF"},
+		{"tru", "expected true got EOF"},
+		{"nul", "expected null got EOF"},
 	}
 	for _, tt := range tts {
 		t.Run(tt.in, func(t *testing.T) {
@@ -126,6 +151,73 @@ func TestToken_Bad(t *testing.T) {
 			_, err := tk.Token()
 			is.True(err != nil)
 			is.Equal(err.Error(), tt.err)
+		})
+	}
+}
+
+func TestReset(t *testing.T) {
+	is := is.New(t)
+	tk := NewWithSize(bytes.NewBufferString("null"), 7)
+
+	tok, err := tk.Token()
+	is.NoErr(err)
+	is.Equal(tok, TokNull)
+	_, err = tk.Token()
+	is.Equal(err, io.EOF)
+
+	tk.Reset(bytes.NewBufferString(`"hello"`))
+	tok, err = tk.Token()
+	is.NoErr(err)
+	is.Equal(tok, TokString)
+	var buf bytes.Buffer
+	_, err = tk.ReadString(&buf)
+	is.NoErr(err)
+	is.Equal(buf.String(), "hello")
+	_, err = tk.Token()
+	is.Equal(err, io.EOF)
+}
+
+func TestBufferSize1(t *testing.T) {
+	tts := []struct {
+		in   string
+		toks []TokType
+		vals []string
+	}{
+		{"null", []TokType{TokNull}, nil},
+		{"true", []TokType{TokTrue}, nil},
+		{"false", []TokType{TokFalse}, nil},
+		{`""`, []TokType{TokString}, []string{""}},
+		{`"hi"`, []TokType{TokString}, []string{"hi"}},
+		{`"a\"b"`, []TokType{TokString}, []string{`a\"b`}},
+		{`"\\"`, []TokType{TokString}, []string{`\\`}},
+		{"42", []TokType{TokNumber}, []string{"42"}},
+		{`{"k":1}`, []TokType{TokObjectOpen, TokString, TokObjectColon, TokNumber, TokObjectClose}, []string{"k", "1"}},
+	}
+	for _, tt := range tts {
+		t.Run(tt.in, func(t *testing.T) {
+			is := is.New(t)
+			tk := NewWithSize(bytes.NewBufferString(tt.in), 1)
+			vals := tt.vals
+			for _, expected := range tt.toks {
+				tok, err := tk.Token()
+				is.NoErr(err)
+				is.Equal(tok, expected)
+				var buf bytes.Buffer
+				switch tok {
+				case TokString:
+					_, err = tk.ReadString(&buf)
+					is.NoErr(err)
+					is.Equal(buf.String(), vals[0])
+					vals = vals[1:]
+				case TokNumber:
+					_, err = tk.ReadNumber(&buf)
+					is.NoErr(err)
+					is.Equal(buf.String(), vals[0])
+					vals = vals[1:]
+				}
+			}
+			_, err := tk.Token()
+			is.Equal(err, io.EOF)
 		})
 	}
 }
@@ -147,19 +239,24 @@ func TestReadNumber_Limited(t *testing.T) {
 	is.Equal(err, io.EOF)
 }
 
-func BenchmarkTokenizer(b *testing.B) {
-	var (
-		f, _   = os.Open("testdata/big.json")
-		buf    = new(bytes.Buffer)
-		_, err = io.Copy(buf, f)
-		data   = bytes.NewReader(buf.Bytes())
-	)
-
-	buf = nil
+func loadTestData(b *testing.B) *bytes.Reader {
+	b.Helper()
+	f, err := os.Open("testdata/big.json")
 	if err != nil {
 		b.Fatal(err)
 	}
+	defer f.Close()
+	var buf bytes.Buffer
+	if _, err = io.Copy(&buf, f); err != nil {
+		b.Fatal(err)
+	}
+	data := bytes.NewReader(buf.Bytes())
 	runtime.GC()
+	return data
+}
+
+func BenchmarkTokenizer(b *testing.B) {
+	data := loadTestData(b)
 	b.ResetTimer()
 
 	for i := 0; i <= 10; i++ {
@@ -202,18 +299,7 @@ func BenchmarkTokenizer(b *testing.B) {
 }
 
 func BenchmarkBuiltinDecoder(b *testing.B) {
-	var (
-		f, _   = os.Open("testdata/big.json")
-		buf    = new(bytes.Buffer)
-		_, err = io.Copy(buf, f)
-		data   = bytes.NewReader(buf.Bytes())
-	)
-
-	buf = nil
-	if err != nil {
-		b.Fatal(err)
-	}
-	runtime.GC()
+	data := loadTestData(b)
 	b.ResetTimer()
 	b.ReportAllocs()
 

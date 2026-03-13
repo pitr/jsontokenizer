@@ -21,9 +21,9 @@ const (
 	TokObjectClose
 	TokObjectColon
 	TokComma
-
-	defaultSize = 64
 )
+
+const defaultSize = 64
 
 // Tokenizer reads and tokenizes JSON from an input stream.
 type Tokenizer interface {
@@ -140,11 +140,12 @@ func (t *tokenizer) ReadString(into io.Writer) (n int, err error) {
 	t.bufp++
 
 	for {
-		for i, c := range t.buf[t.bufp:t.bufe] {
+		for i := t.bufp; i < t.bufe; i++ {
+			c := t.buf[i]
 			if c == '"' && prev != '\\' {
-				z, err := into.Write(t.buf[t.bufp : t.bufp+i])
+				z, err := into.Write(t.buf[t.bufp:i])
 				n += z
-				t.bufp += i + 1
+				t.bufp = i + 1
 				return n, err
 			}
 			if c == '\\' && prev == '\\' {
