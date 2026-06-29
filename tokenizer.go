@@ -218,5 +218,15 @@ func (t *tokenizer) refill() (err error) {
 	t.bufp = 0
 	t.bufe, err = t.in.Read(t.buf)
 
+	// A Read may return n>0 bytes together with a non-nil error (commonly
+	// io.EOF) in a single call — this is legal per the io.Reader contract, and
+	// os.File and net/http/httptest response bodies do exactly that. Honoring
+	// the error now would discard the bytes just buffered. Defer it until the
+	// buffer is drained (the next refill re-reads and surfaces the error with
+	// n==0), mirroring how bufio.Reader behaves.
+	if t.bufe > 0 {
+		return nil
+	}
+
 	return err
 }

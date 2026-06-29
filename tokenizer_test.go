@@ -155,6 +155,63 @@ func TestToken_Bad(t *testing.T) {
 	}
 }
 
+// eofWithDataReader returns the final bytes together with io.EOF in a single
+// Read. This is legal per the io.Reader contract (os.File and
+// net/http/httptest response bodies do it) and must not cause the tokenizer to
+// drop the bytes that arrive alongside the EOF.
+type eofWithDataReader struct{ data []byte }
+
+func (r *eofWithDataReader) Read(p []byte) (int, error) {
+	n := copy(p, r.data)
+	r.data = r.data[n:]
+	if len(r.data) == 0 {
+		return n, io.EOF
+	}
+	return n, nil
+}
+
+func TestToken_EOFWithData(t *testing.T) {
+	const in = `{"k1":"a loooooooooong value","k2":1234567}`
+	toks := []TokType{
+		TokObjectOpen,
+		TokString, TokObjectColon, TokString, TokComma,
+		TokString, TokObjectColon, TokNumber,
+		TokObjectClose,
+	}
+	want := []string{"k1", "a loooooooooong value", "k2", "1234567"}
+
+	// Exercise a range of buffer sizes so a refill lands mid-token on the
+	// final chunk (the case that arrives as (n>0, io.EOF)).
+	for _, size := range []int{1, 3, 7, 16, 64} {
+		t.Run(fmt.Sprintf("size=%d", size), func(t *testing.T) {
+			is := is.New(t)
+			tk := NewWithSize(&eofWithDataReader{data: []byte(in)}, size)
+
+			var got []string
+			for i := 0; i < len(toks); i++ {
+				tok, err := tk.Token()
+				is.NoErr(err)
+				is.Equal(tok, toks[i])
+				switch tok {
+				case TokString:
+					var buf bytes.Buffer
+					_, err := tk.ReadString(&buf)
+					is.NoErr(err)
+					got = append(got, buf.String())
+				case TokNumber:
+					var buf bytes.Buffer
+					_, err := tk.ReadNumber(&buf)
+					is.NoErr(err)
+					got = append(got, buf.String())
+				}
+			}
+			_, err := tk.Token()
+			is.Equal(err, io.EOF)
+			is.Equal(got, want)
+		})
+	}
+}
+
 func TestReset(t *testing.T) {
 	is := is.New(t)
 	tk := NewWithSize(bytes.NewBufferString("null"), 7)
